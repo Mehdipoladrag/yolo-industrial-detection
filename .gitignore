@@ -1,2 +1,13 @@
 /.venv/
 /data/
+/.vscdode/
+__pycache__/
+*.pt
+*.onnx
+*.engine
+*.trt
+*.tflite
+*.pb
+*.mlmodel
+
+runs/

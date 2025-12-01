@@ -32,13 +32,13 @@ class DatasetSplitter:
 
     def merge_original(self):
         """Merge all good/bad images into input_good / input_bad BEFORE split."""
-        print("🔄 Merging all GOOD images...")
+        print("[INFO]Merging all GOOD images...")
         g1 = list((self.base / "train" / "good").glob("*"))
         g2 = list((self.base / "test" / "good").glob("*"))
         for f in g1 + g2:
             shutil.copy(f, self.input_good / f.name)
 
-        print("🔄 Merging all BAD images...")
+        print("[INFO]Merging all BAD images...")
         b1 = list((self.base / "test" / "bad").glob("*"))
         for f in b1:
             shutil.copy(f, self.input_bad / f.name)
@@ -76,7 +76,7 @@ class DatasetSplitter:
         train_g, val_g, test_g = self._split_list(good_files)
         train_b, val_b, test_b = self._split_list(bad_files)
 
-        print("Copying to YOLO folders...")
+        print("[INFO]Copying to YOLO folders...")
 
         # GOOD
         self._copy_files(train_g, self.output["train_good"])
