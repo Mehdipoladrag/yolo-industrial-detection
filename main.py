@@ -1,39 +1,12 @@
-import os
-import glob
-from ultralytics import YOLO
-from src.utils.save_to_txt import save_predictions
+from src.annotator.object_annotator import ObjectAnnotator
 
-MODEL_PATH = "runs/classify/train/weights/best.pt"
-SOURCE_FOLDER = "data/processed/train"
+def main():
+    annotator = ObjectAnnotator(good_threshold=0.75)
 
-YOLO_OUTPUT = "runs/classify/custom_predict"
-OUTPUT_FOLDER = "src/output"
-TXT_NAME = "predictions.txt"
+    annotator.annotate(
+        image_path="data/detection_objects/images/val/0004.png",
+        output_path="output/final.jpg"
+    )
 
-model = YOLO(MODEL_PATH)
-
-good_images = glob.glob(os.path.join(SOURCE_FOLDER, "good", "*"))
-bad_images = glob.glob(os.path.join(SOURCE_FOLDER, "bad", "*"))
-
-all_images = [(img, "good") for img in good_images] + \
-             [(img, "bad") for img in bad_images]
-
-predictions = []
-
-for img_path, true_lbl in all_images:
-    result = model(img_path, save=True, project=YOLO_OUTPUT, exist_ok=True)[0]
-
-    idx = result.probs.top1
-    pred_label = result.names[idx]
-    conf = float(result.probs.top1conf)
-
-    print(f"{img_path} → {pred_label} ({conf:.4f})")
-
-    predictions.append({
-        "image": img_path,
-        "label": pred_label,
-        "confidence": conf,
-        "true_label": true_lbl
-    })
-
-save_predictions(OUTPUT_FOLDER, TXT_NAME, predictions)
+if __name__ == "__main__":
+    main()

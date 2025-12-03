@@ -1,6 +1,5 @@
 /.venv/
 /data/
-/.vscdode/
 __pycache__/
 *.pt
 *.onnx
