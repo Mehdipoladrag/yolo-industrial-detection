@@ -1,0 +1,36 @@
+path: data/mvtec_yolo
+
+train: images/train
+val: images/val
+
+names:
+  0: bottle_good
+  1: bottle_bad
+  2: cable_good
+  3: cable_bad
+  4: capsule_good
+  5: capsule_bad
+  6: carpet_good
+  7: carpet_bad
+  8: grid_good
+  9: grid_bad
+  10: hazelnut_good
+  11: hazelnut_bad
+  12: leather_good
+  13: leather_bad
+  14: metal_nut_good
+  15: metal_nut_bad
+  16: pill_good
+  17: pill_bad
+  18: screw_good
+  19: screw_bad
+  20: tile_good
+  21: tile_bad
+  22: toothbrush_good
+  23: toothbrush_bad
+  24: transistor_good
+  25: transistor_bad
+  26: wood_good
+  27: wood_bad
+  28: zipper_good
+  29: zipper_bad

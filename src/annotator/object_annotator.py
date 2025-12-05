@@ -1,87 +1,123 @@
+import cv2 as cv
 import os
-import cv2
 from models.loader import ModelLoader
 
 
 class ObjectAnnotator:
-    def __init__(self, good_threshold: float = 0.75, min_conf: float = 0.60):
 
+    def __init__(
+        self,
+        min_conf: float = 0.01,
+        good_threshold: float = 0.07,
+        cover_ratio: float = 1.0,
+        box_thickness: int = 3,
+        font_scale: float = 0.7,
+        font_thickness: int = 2,
+    ):
         self.model_loader = ModelLoader()
-        self.good_threshold = good_threshold
         self.min_conf = min_conf
+        self.good_threshold = good_threshold
+        self.cover_ratio = cover_ratio
+        self.box_thickness = box_thickness
+        self.font_scale = font_scale
+        self.font_thickness = font_thickness
 
-    def annotate(self, image_path: str, output_path: str) -> None:
-        img = cv2.imread(image_path)
+
+    def annotate(self, image_path: str, output_path: str):
+
+        img = cv.imread(image_path)
         if img is None:
-            raise FileNotFoundError(f"Image not found: {image_path}")
+            raise FileNotFoundError(image_path)
 
-        # اجرای مدل
+        H, W = img.shape[:2]
+
         results = self.model_loader.predict(image_path)
-
+        names = results.names
         boxes = results.boxes
 
-        # YOLO11 stores class names in results[0].names  ← مهم‌ترین نکته!
-        names = results[0].names
+        if boxes is None or len(boxes) == 0:
+            print("[ERROR] No detections → saving original image")
+            self._save(output_path, img)
+            return
+
+        best = None
+        best_conf = -1.0
 
         for box in boxes:
-            conf = float(box.conf[0])
-            if conf < self.min_conf:
-                continue
-            self._draw_label(img, box, names)
+            conf = float(box.conf.item())
+            if conf > best_conf:
+                best = box
+                best_conf = conf
 
-        os.makedirs(os.path.dirname(output_path), exist_ok=True)
-        cv2.imwrite(output_path, img)
-        print(f"✔ Saved: {output_path}")
+        if best_conf < self.min_conf:
+            print("[ERROR] Low confidence → saving original image")
+            self._save(output_path, img)
+            return
 
-    def _draw_label(self, img, box, names):
+        x1, y1, x2, y2 = map(int, best.xyxy[0])
+        cls_id = int(best.cls.item())
+        raw_name = names[cls_id]
 
-        h, w = img.shape[:2]
+        label, status = self._make_label(raw_name, best_conf)
 
-        # coords
-        x1, y1, x2, y2 = map(int, box.xyxy[0])
+        cx = (x1 + x2) // 2
+        cy = (y1 + y2) // 2
 
-        # class + score
-        cls_id = int(box.cls[0])
+        bw = int(W * self.cover_ratio)
+        bh = int(H * self.cover_ratio)
 
-        # handle dict or list
-        class_name = names[cls_id] if not isinstance(names, dict) else names.get(cls_id, "Object")
+        big_x1 = max(0, cx - bw)
+        big_y1 = max(0, cy - bh)
+        big_x2 = min(W - 1, cx + bw)
+        big_y2 = min(H - 1, cy + bh)
 
-        conf = float(box.conf[0])
-        is_good = conf >= self.good_threshold
-        status = "GOOD" if is_good else "BAD"
+        # Draw annotation box
+        self._draw_box(img, big_x1, big_y1, big_x2, big_y2, label, status)
 
-        label = f"{class_name} ({status})"
+        self._save(output_path, img)
+        print(f"[Done] Saved: {output_path}")
 
-        # color
-        color = (0, 255, 0) if is_good else (0, 0, 255)
 
-        # draw box
-        cv2.rectangle(img, (x1, y1), (x2, y2), color, 2)
+    def _make_label(self, raw_name, conf):
+        """Generate label text and determine GOOD/BAD status."""
+        name = raw_name.replace("_", " ")
 
-        # text style
-        font = cv2.FONT_HERSHEY_SIMPLEX
-        scale = 0.6
-        thickness = 2
-        (tw, th), _ = cv2.getTextSize(label, font, scale, thickness)
+        if raw_name.endswith("_good"):
+            return f"{name} (GOOD) {conf:.2f}", "GOOD"
 
-        # --- place label *INSIDE* the box ---
-        text_x = x1 + 5
-        text_y = y1 + th + 5
+        if raw_name.endswith("_bad"):
+            return f"{name} (BAD) {conf:.2f}", "BAD"
 
-        # background inside box
-        cv2.rectangle(img,
-            (x1, y1),
-            (x1 + tw + 10, y1 + th + 10),
-            color, -1
-        )
+        # If class does not explicitly encode good/bad
+        status = "GOOD" if conf >= self.good_threshold else "BAD"
+        return f"{name} ({status}) {conf:.2f}", status
 
-        # text
-        cv2.putText(
+
+    def _draw_box(self, img, x1, y1, x2, y2, text, status):
+        """Draw bounding box + label."""
+        color = (0, 255, 0) if status == "GOOD" else (0, 0, 255)
+        
+        cv.rectangle(img, (x1, y1), (x2, y2), color, self.box_thickness)
+
+        font = cv.FONT_HERSHEY_SIMPLEX
+        (tw, th), _ = cv.getTextSize(text, font, self.font_scale, self.font_thickness)
+
+        bg_x2 = x1 + tw + 12
+        bg_y2 = y1 + th + 12
+
+        cv.rectangle(img, (x1, y1), (bg_x2, bg_y2), color, -1)
+
+        cv.putText(
             img,
-            label,
-            (text_x, text_y),
-            font, scale,
+            text,
+            (x1 + 6, y1 + th + 4),
+            font,
+            self.font_scale,
             (255, 255, 255),
-            thickness,
-            cv2.LINE_AA
+            self.font_thickness,
+            cv.LINE_AA,
         )
+
+    def _save(self, path, img):
+        os.makedirs(os.path.dirname(path), exist_ok=True)
+        cv.imwrite(path, img)
