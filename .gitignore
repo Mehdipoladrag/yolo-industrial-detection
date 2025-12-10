@@ -1,7 +1,6 @@
 /.venv/
 /data/
 __pycache__/
-*.pt
 *.onnx
 *.engine
 *.trt
@@ -9,4 +8,7 @@ __pycache__/
 *.pb
 *.mlmodel
 
-runs/
+runs/classify/train
+runs/detect/train
+runs/detect/train2
+runs/detect/train3
