@@ -117,6 +117,53 @@ class ObjectAnnotator:
             self.font_thickness,
             cv.LINE_AA,
         )
+    def annotate_frame(self, frame):
+        """Realtime annotate without saving to file."""
+        H, W = frame.shape[:2]
+
+        import tempfile, cv2, os
+        tmp_in = tempfile.mktemp(suffix=".jpg")
+        cv2.imwrite(tmp_in, frame)
+
+        results = self.model_loader.predict(tmp_in)
+        names = results.names
+        boxes = results.boxes
+
+        if boxes is None or len(boxes) == 0:
+            return frame, "NO DETECTION"
+
+        best = None
+        best_conf = -1
+        for box in boxes:
+            conf = float(box.conf.item())
+            if conf > best_conf:
+                best = box
+                best_conf = conf
+
+        if best_conf < self.min_conf:
+            return frame, "LOW_CONF"
+
+        x1, y1, x2, y2 = map(int, best.xyxy[0])
+        cls_id = int(best.cls.item())
+        raw_name = names[cls_id]
+
+        label, status = self._make_label(raw_name, best_conf)
+
+        cx = (x1 + x2) // 2
+        cy = (y1 + y2) // 2
+
+        bw = int(W * self.cover_ratio)
+        bh = int(H * self.cover_ratio)
+
+        bx1 = max(0, cx - bw)
+        by1 = max(0, cy - bh)
+        bx2 = min(W - 1, cx + bw)
+        by2 = min(H - 1, cy + bh)
+
+        self._draw_box(frame, bx1, by1, bx2, by2, label, status)
+
+        return frame, status
+
 
     def _save(self, path, img):
         os.makedirs(os.path.dirname(path), exist_ok=True)
